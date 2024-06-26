@@ -1,6 +1,7 @@
 '''
 Component to interface proximity sensor
 '''
+from machine import Pin
 
 class ProximitySensor:
     '''

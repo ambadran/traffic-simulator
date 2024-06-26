@@ -1,115 +1,135 @@
 '''
-server implementation
+Meant to run on the second Core of Pico for Optimal Performance
+    - Host Web App (HTML file including the CSS and JAVASCRIPT)
+    - Serve the HTML GET and POST requests
+    - Updates internal variables to control Actuators through other Core
+    - Updates the real-time Sensor values displayed on the Web App
 '''
-
 from micropython import const
+from machine import Pin
 import network
 import socket
 import json
-import time
-import random
-
-class ServerMode:
-    AccessPoint = 0
-    Station = 1
+from time import sleep, sleep_ms
 
 class HTML_REQUEST:
-    GET_SENSOR_ACTUATOR = 0
-    POST_SWITCH = 1
-    GET_WEB = 2
+    GET_SENSORS_WEB = 0
+    GET_ACTUATORS_WEB = 1
+    GET_MPC_WEB = 2
+    GET_SENSOR_DATA = 3
+    GET_MPC_VALUES = 4
+    POST_ACTUATOR_STATES = 5
+    POST_TOGGLE_MPC = 6
 
 class Server:
     # Access Point Parameters
-    #TODO:
-    # SSID = const("Smart Incubator Controller")
-    # PASSWORD = const("12345678")
+    SSID = "SIMACAS"
+    PASSWORD = "12345678"
 
-    HTML_REQUEST_MAPPING = {'': HTML_REQUEST.GET_SENSOR_ACTUATOR,
-                            '': HTML_REQUEST.POST_SWITCH,
-                            '': HTML_REQUEST.GET_WEB}
-    ON_OFF_MAPPING = {'on': 1, 'off': 0}
-    def __init__(self, mode: ServerMode):
+    JAVASCRIPT_TO_PYTHON = {'on': 1, 'off': 0, 'forward': 1, 'backward': -1}
+    DEFAULT_WEB_NAME = 'actuators.html'
+    def __init__(self):
         '''
         initiate server
         '''
-        if mode == ServerMode.AccessPoint:
-            self.station = network.WLAN(network.AP_IF)
-            if not self.station.active():
-                self.init_access_point()
-                self.init_socket()
+        self.led = Pin("LED", Pin.OUT)  # on-board LED to show state
+        self.led.off()
 
-        elif mode == ServerMode.Station:
-            self.station = network.WLAN(network.STA_IF)
-            if not self.station.active():
-                self.init_station(self)
-                self.init_socket()
+        self.reset()
+        #TODO: implement try except block to avoid redefining socket
+        self.init_access_point()
+        self.init_socket()
 
-        else:
-            raise ValueError("Unknown ServerMode")
+        #TODO: redefine this datastructure to hold sensor data for 6 different modules
+        self.sensors_dict = {
+                'temperature': 0,
+                'humidity': 0,
+                'soilMoisture': 0,
+                'lightIntensity': 0,
+                'co2Concentration': 0
+                }
 
-        # should've been class method but contain self
-        # self.HANDLE_HTML_REQUEST = {HTML_REQUEST.GET_SENSOR_ACTUATOR: self.handle_get_values,
-        #                        HTML_REQUEST.POST_SWITCH: self.handle_post_switches,
-        #                        HTML_REQUEST.GET_WEB: self.handle_get_web}
-     
+        self.actuators_dict = {
+               'mechanism1': 0,
+               'mechanism2': 0,
+               'mechanism3': 0,
+               'water1': 0,
+               'water2': 0,
+               'water3': 0,
+               'fertilizer1': 0,
+               'fertilizer2': 0,
+               'fertilizer3': 0,
+               'light1': 50,
+               'light2': 50,
+               'light3': 50,
+               }
+
+        self.mpc_dict = {
+               'mpcEnabled': False,
+                }
+
+        self.IDENTIFY_HTML_REQUEST = {
+                'GET /': HTML_REQUEST.GET_ACTUATORS_WEB,
+                'GET /actuators.html': HTML_REQUEST.GET_ACTUATORS_WEB,
+                'GET /sensors.html': HTML_REQUEST.GET_SENSORS_WEB,
+                'GET /mpc.html': HTML_REQUEST.GET_MPC_WEB,
+                'GET /get-sensor-data': HTML_REQUEST.GET_SENSOR_DATA,
+                'GET /get-mpc-values': HTML_REQUEST.GET_MPC_VALUES,
+                'POST /control': HTML_REQUEST.POST_ACTUATOR_STATES,
+                'POST /toggle-mpc': HTML_REQUEST.POST_TOGGLE_MPC
+                } 
+
+        self.HANDLE_HTML_REQUEST = {
+                HTML_REQUEST.GET_ACTUATORS_WEB: self.handle_get_web,
+                HTML_REQUEST.GET_SENSORS_WEB: self.handle_get_web,
+                HTML_REQUEST.GET_MPC_WEB: self.handle_get_web,
+                HTML_REQUEST.GET_SENSOR_DATA: self.handle_get_sensor_data,
+                HTML_REQUEST.GET_MPC_VALUES: self.handle_get_mpc_values,
+                HTML_REQUEST.POST_ACTUATOR_STATES: self.handle_post_actuator_states,
+                HTML_REQUEST.POST_TOGGLE_MPC: self.handle_post_toggle_mpc
+                }
+ 
+    def reset(self):
+        '''
+        returns station object on reset.
+        just deactivate and activate again 
+        '''
+        self.station = network.WLAN(network.AP_IF)
+        self.station.config(ssid=self.SSID, password=self.PASSWORD)
+
+        self.station.active(False)
+        sleep(2)
+        self.station.active(True)
 
     def init_access_point(self):
         '''
         set up the Access Point
         '''
-        self.station.active(False)
-        time.sleep(5)
-
-        self.station.active(True)
-
         self.station.config(ssid=self.SSID, password=self.PASSWORD)
 
         while not self.station.active():
-            pass
+            print(f"Station Initializing.. ", end=' \r')
 
+        self.led.on()
         print('Access Point Active!')
-        # display.home()
-        # display.write("AP Active!      ")
         print(self.station.ifconfig())
-        # display.move(0, 1)
-        # display.write(f"{station.ifconfig()[0]}")
-
-    def init_station(self):
-        '''
-        initiates connection to a router
-        '''
-
-        self.station.active(False)
-        time.sleep(3)
-        self.station.active(True)
-
-        self.station.connect(ssid, password)
-
-        while not sta_if.isconnected():
-            sleep(1)
 
     def init_socket(self):
         '''
         initiate socket connection
         '''
-        self.addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
-        self.s = socket.socket()
-        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s.bind(self.addr)
-        self.s.listen(1)  # Reduce the backlog to minimize memory usage
-        print('Listening on', self.addr)
-        # display.home()
-        # display.write()
+        try:
+            self.station.config(ssid=self.SSID, password=self.PASSWORD)
+            sleep_ms(500)
 
-    @property
-    def web_page(self):
-        '''
-        return the HTML page
-        '''
-        with open('index.html', 'r') as f:
-            web_page = f.read()
-
-        return web_page
+            self.addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+            self.s = socket.socket()
+            self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.s.bind(self.addr)
+            self.s.listen(1)  # Reduce the backlog to minimize memory usage
+            print('Listening on', self.addr)
+        except OSError as e:
+            print(f"Caught: {e}")
 
     def wait_for_client(self):
         '''
@@ -118,157 +138,158 @@ class Server:
         This socket is distinct from the listening socket (s) 
         and is used for sending and receiving data with the specific client that connected.
         '''
-        self.client, addr = self.s.accept()
-        print('Got a connection from %s' % str(addr))
+        try:
+            self.station.config(ssid=self.SSID, password=self.PASSWORD)
+            sleep_ms(500)
 
-    def get_html_request(self) -> tuple[HTML_REQUEST, int, int]:
+            self.client, addr = self.s.accept()
+            print('Got a connection from %s' % str(addr))
+        except Exception as e:
+            print(f"Caught: {e}")
+        # finally:
+        #     self.client.close()
+
+    def identify_html_request(self) -> HTML_REQUEST:
         '''
-        return what the html request wants
-        either an html get request for a json object with all the current sensor data
-            or an html post request that mentions what switch id was triggered by the user and what value
-            or an html get request for the html page itself
+        return what HTML request is given. 
+        Every HTML request must be mapped to a function that handles it.
         '''
-        # try:
-        request = self.client.recv(1024)
-        request = request.decode()
-        print(request, end='\n\n')
+        self.request = self.client.recv(1024).decode()
+        
+        tmp = self.request.split(' ')
+        if len(tmp) > 1:
+            tmp = tmp[0] + ' ' + tmp[1]
 
-        if request.startswith('GET / '):
-            print("got web request")
-            return (HTML_REQUEST.GET_WEB, 0, 0)
+        return self.IDENTIFY_HTML_REQUEST.get(tmp, None)
 
-        elif request.startswith('GET /get_values'):
-            print("got values get request")
-            return (HTML_REQUEST.GET_SENSOR_ACTUATOR, 0, 0)
-
-        elif request.startswith('POST /set_switch_state'):
-            print("got values post request")
-            content_length = int(request.split('Content-Length: ')[1].split('\r\n')[0])
-            body = request.split('\r\n\r\n')[1][:content_length]
-            data = json.loads(body)
-            pin_id = switch_pins.get(data['id'])
-            if pin_id:
-                return (HTML_REQUEST.POST_SWITCH, pin_id, self.ON_OFF_MAPPING[data['state']])
-            else:
-                raise ValueError(f"pin_id: {pin_id}, body: {body}")
-
-        else:
-            print("got unknown request")
-
-        # except Exception as e:
-        #     print(f"Error in get html request: {e}")
-
-
-    def handle_get_web(self, values):
+    def handle_html_request(self, html_request: HTML_REQUEST):
         '''
-        handles GET Request for the whole html file
+        handles the identified html request
         '''
         try:
-            response = self.web_page
-            self.client.send('HTTP/1.1 200 OK\n')
-            self.client.send('Content-Type: text/html\n')
-            self.client.send('Connection: close\n\n')
-            self.client.sendall(response)
+            if html_request is not None:
+                self.HANDLE_HTML_REQUEST[html_request]()
+        
+            else:
+                self.handle_unkonwn_request()
+                print(f"Got unkonwn Request:\n{self.request}")
 
         except Exception as e:
             print(f"Error in handle web get request: {e}")
+            print(f"html request detected: {html_request}")
+            print(f"Raw html request:\n{self.request}")
 
         finally:
             self.client.close()
 
-    def handle_get_values(self, values: dict[str, int]):
+    def handle_get_web(self):
         '''
-        handle sending sensor data in this form
-        {'skinTemperature': 36,
-        'coverClosed': 1,
-        'humidity': 50,
-        'temperature': 25,
-        'motionSensor': 0,
-        'o2Level': 21,
+        Handles GET_ACTUATORS_WEB HTML GET Request
+        '''
+        web_name = self.request.split(' ')
+        web_name = web_name[1]
+        if web_name == '/':
+            # default web
+            web_name = self.DEFAULT_WEB_NAME
 
-        handle sending actuator states in this form
-        {'autoManualSwitch': 'on',
-        'psuControl': 'off',
-        'blueLight': 'off',
-        'uvLight': 'off',
-        'buzzer': 'on',
-        'humidifier': 'on',
+        else:
+            web_name = web_name[1:]
+
+        with open(web_name, 'r') as f:
+            web_page = f.read()
+
+        self.client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
+        # self.client.send('HTTP/1.1 200 OK\n')
+        # self.client.send('Content-Type: text/html\n')
+        # self.client.send('Connection: close\n\n')
+        self.client.sendall(web_page)
+
+    def handle_get_sensor_data(self):
+        '''
+
+        '''
+        #TODO: this is just for testing now
+        sensor_data = {
+            "temperature1": self.sensors_dict['temperature'], "humidity1": self.sensors_dict['humidity'], "soilMoisture1": self.sensors_dict['soilMoisture'], "lightIntensity1": self.sensors_dict['lightIntensity'], "co2Concentration1": self.sensors_dict['co2Concentration'],
+            "temperature2": 0, "humidity2": 0, "soilMoisture2": 0, "lightIntensity2": 0, "co2Concentration2": 0,
+            "temperature3": 0, "humidity3": 0, "soilMoisture3": 0, "lightIntensity3": 0, "co2Concentration3": 0,
+            "temperature4": 0, "humidity4": 0, "soilMoisture4": 0, "lightIntensity4": 0, "co2Concentration4": 0,
+            "temperature5": 0, "humidity5": 0, "soilMoisture5": 0, "lightIntensity5": 0, "co2Concentration5": 0,
+            "temperature6": 0, "humidity6": 0, "soilMoisture6": 0, "lightIntensity6": 0, "co2Concentration6": 0
+        }
+        print("handling sensor request!")
+
+        response = json.dumps(sensor_data)
+
+        self.client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
+        self.client.send(response)
+
+    def handle_get_mpc_values(self):
+        '''
+
+        '''
+        #TODO:
+        mpc_values = {
+            "temperatureReal": 3, "temperaturePredicted": 8, "temperatureLED": 3,
+            "humidityReal": 18, "humidityPredicted": 1, "humidityLED": 2,
+            "co2Real": 38, "co2Predicted": 2,
+            "soilMoistureReal": 0, "soilMoisturePredicted": 1, "soilMoistureWater": "CLOSED",
+            "lightIntensityReal": 9, "lightIntensityPredicted": 7, "lightIntensityLED": 4
         }
 
-        put one of them or both together in one dictionary
+        response = json.dumps(mpc_values)
+
+        self.client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
+        self.client.send(response)
+
+
+    def handle_post_actuator_states(self):
         '''
-        try:
-            response = json.dumps(values)
-            self.client.send('HTTP/1.1 200 OK\n')
-            self.client.send('Content-Type: application/json\n')
-            self.client.send('Connection: close\n\n')
-            self.client.sendall(response)
 
-        except Exception as e:
-            print(f"Error in handle values get request: {e}")
-
-        finally:
-            self.client.close()
-
-    def handle_post_switches(self, values):
         '''
-        Nothing to do here. the values of the switches will be processed in another file
+        #TODO:
+        length = int(self.request.split('Content-Length: ')[1].split('\r\n')[0])
+        body = json.loads(self.client.recv(length).decode('utf-8'))
+
+        ### Handle actuator control by saving into actuators_dict ###
+        # print('Control Request:', body)            
+        key = body['component']
+        value = body['action']
+        if value in ['backward', 'forward']:
+            self.actuators_dict[key] += self.JAVASCRIPT_TO_PYTHON[value]
+
+        elif value in ['on', 'off']:
+            self.actuators_dict[key] = self.JAVASCRIPT_TO_PYTHON[value]
+
+        elif value.isdigit():
+            self.actuators_dict[key] = int(value)
+
+        else:
+            raise ValueError("Unknown Post /control request")
+
+        response = 'HTTP/1.1 200 OK\r\n\r\n'
+        self.client.send(response)
+
+    def handle_post_toggle_mpc(self):
         '''
-        try:
-            self.client.send('HTTP/1.1 200 OK\n')
-            self.client.send('Connection: close\n\n')
 
-        except Exception as e:
-            print(f"Error in handle values post request: {e}")
-
-        finally:
-            self.client.close()
-
-
-    def test_server(self):
         '''
-        implements the routine of the server for testing purposes
+        #TODO:
+        length = int(self.request.split('Content-Length: ')[1].split('\r\n')[0])
+        body = json.loads(self.client.recv(length).decode('utf-8'))
+
+        print(f"MPC POST:\n{self.request}\nBody: {body}")
+
+        self.mpc_dict['mpcEnabled'] = body['mpcEnabled'] 
+
+        response = 'HTTP/1.1 200 OK\r\n\r\n'
+        self.client.send(response)
+
+    def handle_unkonwn_request(self):
         '''
-        try:
-            while True:
-                self.wait_for_client()
-
-                html_request_full = self.get_html_request()
-                print(f"HTML Request: {html_request_full}")
-
-                if html_request_full:
-                    # html_request, pin_id, pin_value = html_request_full
-
-                    # switch_values = [b'on', b'off']
-
-                    # values = {'skinTemperature': random.getrandbits(4),
-                    # 'coverClosed': random.getrandbits(4),
-                    # 'humidity': random.getrandbits(4),
-                    # 'temperature': random.getrandbits(4),
-                    # 'motionSensor': random.getrandbits(4),
-                    # 'o2Level': random.getrandbits(4),
-                    # 'autoManualSwitch': switch_values[random.getrandbits(1)],
-                    # 'psuControl': switch_values[random.getrandbits(1)],
-                    # 'blueLight': switch_values[random.getrandbits(1)],
-                    # 'uvLight': switch_values[random.getrandbits(1)],
-                    # 'buzzer': switch_values[random.getrandbits(1)],
-                    # 'humidifier': switch_values[random.getrandbits(1)],
-                    # }
-
-                    self.HANDLE_HTML_REQUEST[html_request](values)
-
-                else:
-                    self.client.close()
-
-        except KeyboardInterrupt:
-            print("Keyboard Interrupted!")
-
-        # except Exception as e:
-        #     print(f"Error in test server: {e}")
-
-server = Server()
-# server.test_server()
-
-
+        Handles unknown request
+        '''
+        self.client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
+        self.client.send('HTTP/1.1 404 Not Found\r\n\r\nFile Not Found')
 
 
