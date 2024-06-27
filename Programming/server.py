@@ -13,80 +13,42 @@ import json
 from time import sleep, sleep_ms
 
 class HTML_REQUEST:
-    GET_SENSORS_WEB = 0
-    GET_ACTUATORS_WEB = 1
-    GET_MPC_WEB = 2
-    GET_SENSOR_DATA = 3
-    GET_MPC_VALUES = 4
-    POST_ACTUATOR_STATES = 5
-    POST_TOGGLE_MPC = 6
+    GET_WEB = 0
+    
 
 class Server:
     # Access Point Parameters
-    SSID = "SIMACAS"
-    PASSWORD = "12345678"
+    SSID = const("iPhone 15 Pro")
+    PASSWORD = const("dnjdjcnd")
 
     JAVASCRIPT_TO_PYTHON = {'on': 1, 'off': 0, 'forward': 1, 'backward': -1}
-    DEFAULT_WEB_NAME = 'actuators.html'
+    DEFAULT_WEB_NAME = 'index.html'
     def __init__(self):
         '''
         initiate server
         '''
-        self.led = Pin("LED", Pin.OUT)  # on-board LED to show state
-        self.led.off()
-
         self.reset()
-        #TODO: implement try except block to avoid redefining socket
-        self.init_access_point()
+        self.connect()
         self.init_socket()
 
         #TODO: redefine this datastructure to hold sensor data for 6 different modules
         self.sensors_dict = {
-                'temperature': 0,
-                'humidity': 0,
-                'soilMoisture': 0,
-                'lightIntensity': 0,
-                'co2Concentration': 0
+                'proximity': 0,
+                'captureBtn': 0
                 }
 
         self.actuators_dict = {
-               'mechanism1': 0,
-               'mechanism2': 0,
-               'mechanism3': 0,
-               'water1': 0,
-               'water2': 0,
-               'water3': 0,
-               'fertilizer1': 0,
-               'fertilizer2': 0,
-               'fertilizer3': 0,
-               'light1': 50,
-               'light2': 50,
-               'light3': 50,
+               'redLed': 50,
+               'yellowLed': 50,
+               'greenLed': 50,
                }
 
-        self.mpc_dict = {
-               'mpcEnabled': False,
-                }
-
         self.IDENTIFY_HTML_REQUEST = {
-                'GET /': HTML_REQUEST.GET_ACTUATORS_WEB,
-                'GET /actuators.html': HTML_REQUEST.GET_ACTUATORS_WEB,
-                'GET /sensors.html': HTML_REQUEST.GET_SENSORS_WEB,
-                'GET /mpc.html': HTML_REQUEST.GET_MPC_WEB,
-                'GET /get-sensor-data': HTML_REQUEST.GET_SENSOR_DATA,
-                'GET /get-mpc-values': HTML_REQUEST.GET_MPC_VALUES,
-                'POST /control': HTML_REQUEST.POST_ACTUATOR_STATES,
-                'POST /toggle-mpc': HTML_REQUEST.POST_TOGGLE_MPC
+                'GET /': HTML_REQUEST.GET_WEB,
                 } 
 
         self.HANDLE_HTML_REQUEST = {
-                HTML_REQUEST.GET_ACTUATORS_WEB: self.handle_get_web,
-                HTML_REQUEST.GET_SENSORS_WEB: self.handle_get_web,
-                HTML_REQUEST.GET_MPC_WEB: self.handle_get_web,
-                HTML_REQUEST.GET_SENSOR_DATA: self.handle_get_sensor_data,
-                HTML_REQUEST.GET_MPC_VALUES: self.handle_get_mpc_values,
-                HTML_REQUEST.POST_ACTUATOR_STATES: self.handle_post_actuator_states,
-                HTML_REQUEST.POST_TOGGLE_MPC: self.handle_post_toggle_mpc
+                HTML_REQUEST.GET_WEB: self.handle_get_web,
                 }
  
     def reset(self):
@@ -94,32 +56,33 @@ class Server:
         returns station object on reset.
         just deactivate and activate again 
         '''
-        self.station = network.WLAN(network.AP_IF)
-        self.station.config(ssid=self.SSID, password=self.PASSWORD)
+        self.station = network.WLAN(network.STA_IF)
+        # self.station.config(ssid=self.SSID, password=self.PASSWORD)
+        #TODO:
 
         self.station.active(False)
         sleep(2)
         self.station.active(True)
 
-    def init_access_point(self):
+    def connect(self):
         '''
-        set up the Access Point
+        connect to wifi
         '''
-        self.station.config(ssid=self.SSID, password=self.PASSWORD)
-
-        while not self.station.active():
-            print(f"Station Initializing.. ", end=' \r')
-
-        self.led.on()
-        print('Access Point Active!')
-        print(self.station.ifconfig())
+        if not self.station.isconnected():
+                print('connecting to network...')
+                self.station.active(True)
+                self.station.connect(SSID, PASSWORD)
+                while not self.station.isconnected():
+                    pass
+        print('network config:', self.station.ifconfig())
 
     def init_socket(self):
         '''
         initiate socket connection
         '''
         try:
-            self.station.config(ssid=self.SSID, password=self.PASSWORD)
+            # self.station.config(ssid=self.SSID, password=self.PASSWORD)
+            #TODO:
             sleep_ms(500)
 
             self.addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
@@ -139,7 +102,8 @@ class Server:
         and is used for sending and receiving data with the specific client that connected.
         '''
         try:
-            self.station.config(ssid=self.SSID, password=self.PASSWORD)
+            # self.station.config(ssid=self.SSID, password=self.PASSWORD)
+            #TODO:
             sleep_ms(500)
 
             self.client, addr = self.s.accept()
@@ -184,106 +148,13 @@ class Server:
 
     def handle_get_web(self):
         '''
-        Handles GET_ACTUATORS_WEB HTML GET Request
+        Handles HTML GET WEB Request
         '''
-        web_name = self.request.split(' ')
-        web_name = web_name[1]
-        if web_name == '/':
-            # default web
-            web_name = self.DEFAULT_WEB_NAME
-
-        else:
-            web_name = web_name[1:]
-
-        with open(web_name, 'r') as f:
+        with open('index.html', 'r') as f:
             web_page = f.read()
 
         self.client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
-        # self.client.send('HTTP/1.1 200 OK\n')
-        # self.client.send('Content-Type: text/html\n')
-        # self.client.send('Connection: close\n\n')
         self.client.sendall(web_page)
-
-    def handle_get_sensor_data(self):
-        '''
-
-        '''
-        #TODO: this is just for testing now
-        sensor_data = {
-            "temperature1": self.sensors_dict['temperature'], "humidity1": self.sensors_dict['humidity'], "soilMoisture1": self.sensors_dict['soilMoisture'], "lightIntensity1": self.sensors_dict['lightIntensity'], "co2Concentration1": self.sensors_dict['co2Concentration'],
-            "temperature2": 0, "humidity2": 0, "soilMoisture2": 0, "lightIntensity2": 0, "co2Concentration2": 0,
-            "temperature3": 0, "humidity3": 0, "soilMoisture3": 0, "lightIntensity3": 0, "co2Concentration3": 0,
-            "temperature4": 0, "humidity4": 0, "soilMoisture4": 0, "lightIntensity4": 0, "co2Concentration4": 0,
-            "temperature5": 0, "humidity5": 0, "soilMoisture5": 0, "lightIntensity5": 0, "co2Concentration5": 0,
-            "temperature6": 0, "humidity6": 0, "soilMoisture6": 0, "lightIntensity6": 0, "co2Concentration6": 0
-        }
-        print("handling sensor request!")
-
-        response = json.dumps(sensor_data)
-
-        self.client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
-        self.client.send(response)
-
-    def handle_get_mpc_values(self):
-        '''
-
-        '''
-        #TODO:
-        mpc_values = {
-            "temperatureReal": 3, "temperaturePredicted": 8, "temperatureLED": 3,
-            "humidityReal": 18, "humidityPredicted": 1, "humidityLED": 2,
-            "co2Real": 38, "co2Predicted": 2,
-            "soilMoistureReal": 0, "soilMoisturePredicted": 1, "soilMoistureWater": "CLOSED",
-            "lightIntensityReal": 9, "lightIntensityPredicted": 7, "lightIntensityLED": 4
-        }
-
-        response = json.dumps(mpc_values)
-
-        self.client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
-        self.client.send(response)
-
-
-    def handle_post_actuator_states(self):
-        '''
-
-        '''
-        #TODO:
-        length = int(self.request.split('Content-Length: ')[1].split('\r\n')[0])
-        body = json.loads(self.client.recv(length).decode('utf-8'))
-
-        ### Handle actuator control by saving into actuators_dict ###
-        # print('Control Request:', body)            
-        key = body['component']
-        value = body['action']
-        if value in ['backward', 'forward']:
-            self.actuators_dict[key] += self.JAVASCRIPT_TO_PYTHON[value]
-
-        elif value in ['on', 'off']:
-            self.actuators_dict[key] = self.JAVASCRIPT_TO_PYTHON[value]
-
-        elif value.isdigit():
-            self.actuators_dict[key] = int(value)
-
-        else:
-            raise ValueError("Unknown Post /control request")
-
-        response = 'HTTP/1.1 200 OK\r\n\r\n'
-        self.client.send(response)
-
-    def handle_post_toggle_mpc(self):
-        '''
-
-        '''
-        #TODO:
-        length = int(self.request.split('Content-Length: ')[1].split('\r\n')[0])
-        body = json.loads(self.client.recv(length).decode('utf-8'))
-
-        print(f"MPC POST:\n{self.request}\nBody: {body}")
-
-        self.mpc_dict['mpcEnabled'] = body['mpcEnabled'] 
-
-        response = 'HTTP/1.1 200 OK\r\n\r\n'
-        self.client.send(response)
 
     def handle_unkonwn_request(self):
         '''
