@@ -10,8 +10,8 @@ class Actuators:
     Object to control all actuators in the system
     '''
     RED_LED_PIN_NUM = const(12)
-    YELLOW_LED_PIN_NUM = const(13)
-    GREEN_LED_PIN_NUM = const(15)
+    YELLOW_LED_PIN_NUM = const(15)
+    GREEN_LED_PIN_NUM = const(13)
 
     MOTOR_PWM_PIN_NUM = const(14)
     MOTOR_DIR_PIN_NUM = const(2)

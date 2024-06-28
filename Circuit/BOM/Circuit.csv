@@ -1,0 +1,17 @@
+"Id";"Designator";"Footprint";"Quantity";"Designation";"Supplier and ref";
+1;"R8,R7,R10";"R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal";3;"2k";;;
+2;"R5";"R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal";1;"10K";;;
+3;"D1";"JST_EH_B2B-EH-A_1x02_P2.50mm_Vertical";1;"RED";;;
+4;"Debug1";"PinSocket_1x03_P2.54mm_Vertical";1;"1x3_Header";;;
+5;"C1";"CP_Radial_D8.0mm_P3.80mm";1;"300uF";;;
+6;"Q1";"TO-92_Inline_Wide";1;"S8050";;;
+7;"D3";"JST_EH_B2B-EH-A_1x02_P2.50mm_Vertical";1;"GREEN";;;
+8;"R3,R2,R1";"R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal";3;"330";;;
+9;"R6,R9,R4";"R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal";3;"1k";;;
+10;"D2";"JST_EH_B2B-EH-A_1x02_P2.50mm_Vertical";1;"YELLOW";;;
+11;"Proximity1";"JST_EH_B3B-EH-A_1x03_P2.50mm_Vertical";1;"JST 3P";;;
+12;"U1";"TO-220-3_Vertical";1;"L7805";;;
+13;"ESP32-CAM2,ESP32-CAM1";"PinSocket_1x08_P2.54mm_Vertical";2;"01x08_Header";;;
+14;"SW1";"PinSocket_1x03_P2.54mm_Vertical";1;"SW_DPDT_x2";;;
+15;"Power24V1";"TerminalBlock_bornier-2_P5.08mm";1;"TerminalBlock";;;
+16;"Motor1";"JST_EH_B4B-EH-A_1x04_P2.50mm_Vertical";1;"JST 4P";;;

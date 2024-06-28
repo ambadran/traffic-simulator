@@ -15,4 +15,4 @@ class ProximitySensor:
         '''
         returns current state of proximity sensor
         '''
-        return self._pin.value()
+        return not self._pin.value()

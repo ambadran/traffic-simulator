@@ -7,31 +7,48 @@ Traffic Simulator System:
 from time import sleep, sleep_ms
 from actuators import Actuators
 from sensors import Sensors
+from server import Server
 import camera
-# from server import server
 
 def main():
     '''
     Main Routine
     '''
-    ### Inits ###
-    actuators = Actuators()
-    sensors = Sensors()
-    # server = Server()
+    sleep(4)
 
-    print("All System Components UP")
+    try:
+        actuators = Actuators()
+        sensors = Sensors()
+        server = Server()
+        camera.init()
 
-# sleep(3)
+        actuators.traffic_lights.flash_all()
+        print("\nAll System Components Up and running!!\n")
 
-try:
-    actuators = Actuators()
-    sensors = Sensors()
-    camera.init()
+        while True:
+            
+            actuators.traffic_lights.next_light('tmp')
+            print(f"Current Traffic Light: {actuators.traffic_lights._current_led_ind}")
 
-except Exception as e:
-    print(f"Caught {e}")
+            if sensors.proximity_sensor.state and actuators.traffic_lights._current_led_ind == 0:
+                # Capture Image
+                img = camera.capture()
+                print(f"Picture Captured, len: {len(img)}")
 
-finally:
-    camera.deinit()
+                # Send to Server
+                # server.socket_connect()
+                # server.socket_send_data()
+                # server.socket_disconnect()
 
+                print("Proximity Detected in Red Lights!!\n")
+
+            sleep(1)
+
+    except Exception as e:
+        print(f"Caught {e}")
+
+    finally:
+        camera.deinit()
+        actuators.traffic_lights.stop()
+        # server.socket_disconnect()
 
