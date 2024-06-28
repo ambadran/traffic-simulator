@@ -36,9 +36,10 @@ def main():
                 print(f"Picture Captured, len: {len(img)}")
 
                 # Send to Server
-                # server.socket_connect()
-                # server.socket_send_data()
-                # server.socket_disconnect()
+                server.socket_connect()
+                response = server.socket_send_data(img)
+                server.socket_disconnect()
+                print(f"Sent!, Response: {response}")
 
                 print("Proximity Detected in Red Lights!!\n")
 
@@ -50,5 +51,5 @@ def main():
     finally:
         camera.deinit()
         actuators.traffic_lights.stop()
-        # server.socket_disconnect()
+        server.socket_disconnect()
 

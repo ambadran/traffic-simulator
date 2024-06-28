@@ -18,10 +18,11 @@ class HTML_REQUEST:
 
 class Server:
     # Access Point Parameters
-    SSID = const("Mr.A's Lab")
-    PASSWORD = const("lskdmin2938#$")
+    SSID = const("Orange-79BC")
+    PASSWORD = const("MGMEN6M54LR")
 
-    SERVER_IP = const("")
+    SERVER_IP = const("192.168.1.107")
+    SERVER_PORT = const("4400")
     def __init__(self):
         '''
         initiate server
@@ -29,17 +30,7 @@ class Server:
         self.reset()
         self.connect_wifi()
 
-        #TODO: redefine this datastructure to hold sensor data for 6 different modules
-        self.sensors_dict = {
-                'proximity': 0,
-                'img': None
-                }
-
-        self.actuators_dict = {
-               'redLed': 50,
-               'yellowLed': 50,
-               'greenLed': 50,
-               }
+        self.addr = (self.SERVER_IP, self.SERVER_PORT)
 
     def reset(self):
         '''
@@ -70,17 +61,16 @@ class Server:
         '''
         connect to socket
         '''
-        self.sockaddr = socket.getaddrinfo(SERVER_IP, 80, 0, socket.SOCK_STREAM)[0][-1]
-        self.sock = socket.socket()
-        self.sock.connect(self.sockaddr)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect(self.addr)
+        # return self.sock.recv(1024)  #TODO:
 
-    def socket_send_data(self):
+    def socket_send_data(self, img):
         '''
         sends data to socket
         '''
-
-        text = f"124,{self.sensors_dict['img']}"
-        self.sock.sendall()
+        # self.sock.sendall(f"124,{img}")
+        self.sock.sendall(img)
 
     def socket_disconnect(self):
         '''
