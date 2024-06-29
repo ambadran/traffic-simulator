@@ -43,7 +43,7 @@ def main():
 
                 print("Proximity Detected in Red Lights!!\n")
 
-            sleep(1)
+            sleep(10)
 
     except Exception as e:
         print(f"Caught {e}")
@@ -53,3 +53,5 @@ def main():
         actuators.traffic_lights.stop()
         server.socket_disconnect()
 
+sleep(5)
+main()
